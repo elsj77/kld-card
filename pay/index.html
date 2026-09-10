@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Prepay Your Season — Lawn Doctor</title>
+<style>
+  body{font-family:Segoe UI,Arial,sans-serif;background:#f4f6f8;margin:0;padding:24px 16px;}
+  .wrap{max-width:640px;margin:0 auto;}
+  .brand{font-size:22px;font-weight:700;color:#0f2338;margin-bottom:12px;}
+  .card{background:#fff;border-radius:10px;padding:28px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:20px;}
+  h1{color:#0f2338;font-size:22px;margin:0 0 10px;}
+  p{color:#444;font-size:15px;line-height:1.5;}
+  .btn{background-color:#16a34a;color:#fff;padding:16px 32px;border:none;border-radius:8px;font-size:17px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;}
+  .btn:hover{background-color:#15803d;}
+  .btn[disabled]{background-color:#a7d7b9;cursor:wait;}
+  .small{font-size:13px;color:#777;}
+  .shield{display:inline-block;margin-right:8px;}
+  .spinner{display:inline-block;width:18px;height:18px;border:3px solid #d7dee7;border-top-color:#0f2338;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:10px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .totalline{display:flex;justify-content:space-between;border-top:2px solid #0f2338;margin-top:10px;padding-top:12px;font-size:18px;font-weight:700;color:#0f2338;}
+  .line{display:flex;justify-content:space-between;padding:6px 0;font-size:15px;color:#444;}
+  .ok{color:#15803d;font-weight:700;font-size:44px;line-height:1;}
+  .addr{color:#667;font-size:15px;margin:2px 0 18px;}
+  form{margin-top:22px;}
+</style>
+</head><body><div class="wrap">
+<div class="card" id="main">
+  <div class="brand">Lawn Doctor / Mow &amp; Snow / Blue Spruce</div>
+  <div id="content">
+    <h1>Prepay Your Snow Season</h1>
+    <p id="status"><span class="spinner"></span>Looking up your renewal&hellip;</p>
+  </div>
+  <form id="payform" method="post" action="#"><input type="hidden" name="token" value=""/></form>
+</div>
+<div class="card"><p class="small" style="margin:0;">Questions? Call us at 250-489-2031.</p></div>
+</div>
+<script>
+(function(){
+  var API = 'https://doc-pro-781789de.base44.app/functions/anetPrepayPay';
+  var qs = new URLSearchParams(location.search);
+  var e = (qs.get('e')||'').trim();
+  var content = document.getElementById('content');
+
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function fail(msg){
+    content.innerHTML = '<h1>Prepay Your Snow Season</h1><p style="color:#b91c1c;font-weight:600;">' + msg + '</p><p class="small">You can also call our office at 250-489-2031 and we\'ll take your prepayment over the phone.</p>';
+  }
+
+  if(qs.get('paid')){
+    document.title = 'Payment Received — Thank You';
+    content.innerHTML = '<h1>Thank You!</h1><p><span class="ok">&#10003;</span></p><p style="font-size:17px;">Your season prepayment has been received. A receipt is on its way to your email, and your account is all set for winter.</p><p class="small">You can close this page.</p>';
+    return;
+  }
+  if(qs.get('cancel')){
+    content.innerHTML = '<h1>Payment Cancelled</h1><p>No charge was made. Your season renewal is unaffected &mdash; you can prepay any time from the link in your renewal email, or call us at 250-489-2031.</p>';
+    return;
+  }
+  if(!e || !/^\d{1,8}$/.test(e)){
+    fail('This link looks incomplete. Please use the &ldquo;Prepay Now&rdquo; button in your renewal email.');
+    return;
+  }
+
+  fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({e:e, mode:'summary'})})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if(j.error){ fail(j.error==='not_found' ? 'We couldn\'t find that renewal quote. Please use the exact link from your renewal email, or call our office.' : 'We couldn\'t load your renewal right now. Please try again in a few minutes, or call our office at 250-489-2031.'); return; }
+      var html = '<h1>Prepay Your Snow Season</h1>'
+        + '<p class="addr">' + esc(j.client) + (j.address ? ' &mdash; ' + esc(j.address) : '') + '</p>'
+        + '<div class="line"><span>Season Subtotal</span><span>$' + esc(j.subtotal) + '</span></div>'
+        + '<div class="line"><span>GST</span><span>$' + esc(j.tax) + '</span></div>'
+        + '<div class="totalline"><span>Total Season Cost</span><span>$' + esc(j.total) + '</span></div>'
+        + '<button id="paybtn" class="btn">Pay $' + esc(j.total) + ' Now &nbsp;&rarr;</button>'
+        + '<p class="small" style="margin-top:14px;"><span class="shield">&#128274;</span>You\'ll be taken to Authorize.net\'s bank-grade encrypted form to enter your card. Your card details never touch our systems.</p>';
+      content.innerHTML = html;
+      document.getElementById('paybtn').addEventListener('click', function(ev){
+        ev.preventDefault();
+        var btn = this; btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Taking you to the secure form&hellip;';
+        fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({e:e, mode:'pay'})})
+          .then(function(r){ return r.json(); })
+          .then(function(j2){
+            if(j2.error){ btn.disabled = false; btn.innerHTML = 'Pay Now &nbsp;&rarr;'; fail(j2.error==='not_found' ? 'We couldn\'t find that renewal quote.' : 'We couldn\'t reach the secure payment form. Please try again in a few minutes, or call our office.'); return; }
+            var f = document.getElementById('payform');
+            f.action = j2.actionUrl;
+            f.querySelector('input[name=token]').value = j2.token;
+            f.submit();
+          })
+          .catch(function(){ btn.disabled = false; btn.innerHTML = 'Pay Now &nbsp;&rarr;'; fail('Connection problem &mdash; please try again in a few minutes, or call our office.'); });
+      });
+    })
+    .catch(function(){ fail('We couldn\'t load your renewal right now. Please try again in a few minutes, or call our office.'); });
+})();
+</script>
+</body></html>
