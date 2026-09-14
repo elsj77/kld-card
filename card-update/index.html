@@ -58,6 +58,7 @@
   var qs = new URLSearchParams(location.search);
   var email = (qs.get('e')||'').toLowerCase().trim();
   var pick = qs.get('pick')||'';
+  var forceNew = qs.get('new') === '1';
   var statusEl = document.getElementById('status');
   var fb = document.getElementById('fallback');
   var fbbtn = document.getElementById('fbbtn');
@@ -91,6 +92,7 @@
 
   var url = API + '?e=' + encodeURIComponent(email) + '&mode=json';
   if(pick) url += '&pick=' + encodeURIComponent(pick);
+  if(forceNew) url += '&new=1';
 
   fetch(url).then(function(r){ return r.json(); }).then(function(j){
     if(j.error){
@@ -109,6 +111,40 @@
       list += '</ul><p class="small" style="margin-top:18px;">Don\'t see your account? Call us at 250-489-2031.</p>';
       statusEl.innerHTML = list;
       fb.style.display = 'none';
+      return;
+    }
+    if(j.restore){
+      // Card exists in our payment system but isn't linked to the account —
+      // offer a one-click restore instead of ANet's duplicate-card dead end.
+      var r = j.restore;
+      var esc = function(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+      var brandTxt = r.brand ? esc(r.brand) + ' ' : '';
+      var newParams = new URLSearchParams(location.search); newParams.set('new','1');
+      statusEl.innerHTML = '<p style="color:#0f2338;font-weight:600;">Good news — we still have your card on file</p>'
+        + '<p style="color:#444;">Your saved card <b>' + brandTxt + '&bull;&bull;&bull;&bull; ' + esc(r.last4) + '</b> is still with our payment system — it just needs re-linking to your account. No card entry needed:</p>'
+        + '<p><button type="button" id="restorebtn" style="background:#16a34a;color:#fff;padding:14px 28px;border:none;border-radius:6px;font-size:16px;font-weight:600;cursor:pointer;">Restore My Card &nbsp;&rarr;</button></p>'
+        + '<p style="color:#555;font-size:14px;">Want to use a <b>different</b> card instead? <a href="?' + newParams.toString() + '" style="color:#2563eb;">Add a new card &rarr;</a></p>';
+      fb.style.display = 'none';
+      document.getElementById('restorebtn').addEventListener('click', function(){
+        var b = this; b.disabled = true; b.innerHTML = 'Restoring your card&hellip;';
+        var ru = API + '?e=' + encodeURIComponent(email) + '&do=restore&mode=json';
+        if(pick) ru += '&pick=' + encodeURIComponent(pick);
+        fetch(ru).then(function(r2){ return r2.json(); }).then(function(j2){
+          if(j2.ok){
+            document.getElementById('main').innerHTML = '<div style="font-size:44px;color:#15803d;line-height:1;margin-bottom:8px;">&#10004;</div>'
+              + '<h1 style="color:#0f2338;font-size:23px;margin:0 0 10px;">Card restored!</h1>'
+              + '<p style="color:#444;font-size:15px;line-height:1.6;">We&rsquo;ve re-linked your saved card to your account. It will show on your account within a few minutes and will be used for your automatic renewals.</p>'
+              + '<p style="color:#777;font-size:13px;">You can close this window now — if you came from the renewal page, it will update automatically. Questions? Call us at 250-489-2031.</p>';
+            window.scrollTo(0,0);
+          } else {
+            b.disabled = false; b.innerHTML = 'Restore My Card &nbsp;&rarr;';
+            statusEl.innerHTML = '<span style="color:#b91c1c;font-weight:600;">We couldn&rsquo;t restore the card just now.</span> <span class="small">Please try again in a minute, or call our office at 250-489-2031.</span>';
+          }
+        }).catch(function(){
+          b.disabled = false; b.innerHTML = 'Restore My Card &nbsp;&rarr;';
+          statusEl.innerHTML = '<span style="color:#b91c1c;font-weight:600;">Connection problem.</span> <span class="small">Please try again in a minute, or call our office at 250-489-2031.</span>';
+        });
+      });
       return;
     }
     if(j.actionUrl && j.token){
