@@ -55,7 +55,7 @@
 (function(){
   var API = 'https://doc-pro-781789de.base44.app/functions/anetPrepayPay';
   var qs = new URLSearchParams(location.search);
-  var e = (qs.get('e')||'').trim();
+  var e = (qs.get('t')||'').trim(); // secure per-client portal token (Sept 17 2026)
   var content = document.getElementById('content');
 
   function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -73,15 +73,15 @@
     content.innerHTML = '<h1>Payment Cancelled</h1><p>No charge was made. Your season renewal is unaffected &mdash; you can prepay any time from the link in your renewal email, or call us at 250-489-2031.</p>';
     return;
   }
-  if(!e || !/^\d{1,8}$/.test(e)){
+  if(!e || !/^[A-Za-z0-9_-]{20,64}$/.test(e)){
     fail('This link looks incomplete. Please use the &ldquo;Prepay Now&rdquo; button in your renewal email.');
     return;
   }
 
-  fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({e:e, mode:'summary'})})
+  fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({t:e, mode:'summary'})})
     .then(function(r){ return r.json(); })
     .then(function(j){
-      if(j.error){ fail(j.error==='not_found' ? 'We couldn\'t find that renewal quote. Please use the exact link from your renewal email, or call our office.' : 'We couldn\'t load your renewal right now. Please try again in a few minutes, or call our office at 250-489-2031.'); return; }
+      if(j.error){ fail(j.error==='link_invalid' ? 'This secure link is no longer valid. Please use the exact button from your renewal email, or call our office.' : 'We couldn\'t load your renewal right now. Please try again in a few minutes, or call our office at 250-489-2031.'); return; }
 
       var itemsHtml = '';
       var items = Array.isArray(j.items) ? j.items : [];
@@ -108,7 +108,7 @@
       document.getElementById('paybtn').addEventListener('click', function(ev){
         ev.preventDefault();
         var btn = this; btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Taking you to the secure form&hellip;';
-        fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({e:e, mode:'pay'})})
+        fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({t:e, mode:'pay'})})
           .then(function(r){ return r.json(); })
           .then(function(j2){
             if(j2.error){ btn.disabled = false; btn.innerHTML = 'Pay Now &nbsp;&rarr;'; fail(j2.error==='not_found' ? 'We couldn\'t find that renewal quote.' : 'We couldn\'t reach the secure payment form. Please try again in a few minutes, or call our office.'); return; }

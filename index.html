@@ -40,7 +40,7 @@
   <p id="status"><span class="spinner"></span>Taking you to the secure card form&hellip;</p>
   <p class="small"><span class="shield">&#128274;</span>Card details are entered on Authorize.net's bank-grade encrypted form. Your card information never touches our systems and is stored directly on your account.</p>
   <form id="ccform" method="post" action="#"><input type="hidden" name="token" value=""/></form>
-  <div id="entryform" class="emailform" style="display:none;">
+  <div id="entryform" class="emailform" style="display:none;" aria-hidden="true">
     <form id="eform" onsubmit="return false;">
       <label for="eaddr" style="font-weight:600;color:#0f2338;">Enter the email address on your account:</label>
       <input type="email" id="eaddr" name="eaddr" placeholder="you@example.com" autocomplete="email" required>
@@ -56,8 +56,7 @@
 (function(){
   var API = 'https://doc-pro-781789de.base44.app/functions/cardCapturePage';
   var qs = new URLSearchParams(location.search);
-  var email = (qs.get('e')||'').toLowerCase().trim();
-  var pick = qs.get('pick')||'';
+  var t = (qs.get('t')||'').trim();
   var forceNew = qs.get('new') === '1';
   var statusEl = document.getElementById('status');
   var fb = document.getElementById('fallback');
@@ -68,49 +67,22 @@
     fb.style.display = 'none';
   }
 
-  if(!email || email.indexOf('@') < 0 || email.indexOf('[') >= 0){
-    // bare link, or an unresolved merge tag (template preview) - let the visitor self-identify
-    statusEl.innerHTML = 'Enter the email on your account and we\'ll take you to the secure card form.';
-    document.getElementById('entryform').style.display = 'block';
-    var goBtn = document.getElementById('gobtn');
-    var doGo = function(){
-      var v = (document.getElementById('eaddr').value||'').toLowerCase().trim();
-      if(!v || v.indexOf('@') < 0){ document.getElementById('eaddr').focus(); return; }
-      var p = new URLSearchParams(); p.set('e', v);
-      var keep = new URLSearchParams(location.search).get('pick');
-      if(keep) p.set('pick', keep);
-      location.search = p.toString();
-    };
-    goBtn.addEventListener('click', doGo);
-    document.getElementById('eform').addEventListener('submit', doGo);
-    document.getElementById('eaddr').focus();
+  if(!t || !/^[A-Za-z0-9_-]{20,64}$/.test(t)){
+    statusEl.innerHTML = 'This page needs your personal secure link. Please use the <b>Add / Update My Card</b> button in your renewal email &mdash; or call our office at 250-489-2031 and we\'ll send you a fresh link.';
+    fb.style.display = 'none';
     return;
   }
 
   // fallback button = the Base44 one-click page (works without JS)
-  fbbtn.href = 'https://doc-pro-781789de.base44.app/functions/cardCapturePage?e=' + encodeURIComponent(email);
+  fbbtn.href = API + '?t=' + encodeURIComponent(t) + (forceNew ? '&new=1' : '');
 
-  var url = API + '?e=' + encodeURIComponent(email) + '&mode=json';
-  if(pick) url += '&pick=' + encodeURIComponent(pick);
-  if(forceNew) url += '&new=1';
+  var url = API + '?t=' + encodeURIComponent(t) + '&mode=json' + (forceNew ? '&new=1' : '');
 
   fetch(url).then(function(r){ return r.json(); }).then(function(j){
     if(j.error){
-      if(j.error === 'not_found') showError('We couldn\'t locate your account with this email address. Please call our office at 250-489-2031.');
+      if(j.error === 'link_invalid') showError('This secure link is no longer valid. Please use the button in your renewal email, or call our office at 250-489-2031 for a fresh link.');
       else if(j.error === 'anet_unavailable') { statusEl.innerHTML = '<span style="color:#b91c1c;font-weight:600;">We couldn\'t load the secure card form right now.</span> <span class="small">Please try again in a few minutes.</span>'; fb.style.display='block'; }
       else showError('Something went wrong. Please call our office at 250-489-2031.');
-      return;
-    }
-    if(j.choose){
-      var list = '<p style="color:#0f2338;font-weight:600;margin-bottom:6px;">We found more than one account with this email.</p><p class="small" style="margin-bottom:8px;">Please select your account:</p><ul class="pick">';
-      j.choose.forEach(function(m){
-        var label = (m.client_name||'') + (m.service_city ? ' — ' + m.service_city : '');
-        var esc = label.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        list += '<li><a href="?e=' + encodeURIComponent(email) + '&pick=' + encodeURIComponent(m.customer_id) + '">' + esc + ' &nbsp;&rarr;</a></li>';
-      });
-      list += '</ul><p class="small" style="margin-top:18px;">Don\'t see your account? Call us at 250-489-2031.</p>';
-      statusEl.innerHTML = list;
-      fb.style.display = 'none';
       return;
     }
     if(j.restore){
@@ -127,8 +99,7 @@
       fb.style.display = 'none';
       document.getElementById('restorebtn').addEventListener('click', function(){
         var b = this; b.disabled = true; b.innerHTML = 'Restoring your card&hellip;';
-        var ru = API + '?e=' + encodeURIComponent(email) + '&do=restore&mode=json';
-        if(pick) ru += '&pick=' + encodeURIComponent(pick);
+        var ru = API + '?t=' + encodeURIComponent(t) + '&do=restore&mode=json';
         fetch(ru).then(function(r2){ return r2.json(); }).then(function(j2){
           if(j2.ok){
             document.getElementById('main').innerHTML = '<div style="font-size:44px;color:#15803d;line-height:1;margin-bottom:8px;">&#10004;</div>'
