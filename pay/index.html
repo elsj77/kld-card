@@ -75,7 +75,7 @@
     content.innerHTML = '<h1>Payment Cancelled</h1><p>No charge was made. Your season renewal is unaffected &mdash; you can prepay any time from the link in your renewal email, or call us at 250-489-2031.</p>';
     return;
   }
-  if(!e || !/^[A-Za-z0-9_-]{20,64}$/.test(e)){
+  if((!e || !/^[A-Za-z0-9_-]{20,64}$/.test(e)) && !qq){
     fail('This link looks incomplete. Please use the &ldquo;Prepay Now&rdquo; button in your renewal email.');
     return;
   }
