@@ -57,6 +57,7 @@
   var API = 'https://doc-pro-781789de.base44.app/functions/cardCapturePage';
   var qs = new URLSearchParams(location.search);
   var t = (qs.get('t')||'').trim();
+  var q = (qs.get('q')||'').trim(); // estimate GUID link — [quotelinkurl] merge, SAP's own proposal credential (Sept 18 2026)
   var forceNew = qs.get('new') === '1';
   var statusEl = document.getElementById('status');
   var fb = document.getElementById('fallback');
@@ -67,16 +68,19 @@
     fb.style.display = 'none';
   }
 
-  if(!t || !/^[A-Za-z0-9_-]{20,64}$/.test(t)){
+  if((!t || !/^[A-Za-z0-9_-]{20,64}$/.test(t)) && !q){
     statusEl.innerHTML = 'This page needs your personal secure link. Please use the <b>Add / Update My Card</b> button in your renewal email &mdash; or call our office at 250-489-2031 and we\'ll send you a fresh link.';
     fb.style.display = 'none';
     return;
   }
 
-  // fallback button = the Base44 one-click page (works without JS)
-  fbbtn.href = API + '?t=' + encodeURIComponent(t) + (forceNew ? '&new=1' : '');
+  // auth param: GUID link (q) when present, else portal token (t)
+  var authQ = q ? ('q=' + encodeURIComponent(q)) : ('t=' + encodeURIComponent(t));
 
-  var url = API + '?t=' + encodeURIComponent(t) + '&mode=json' + (forceNew ? '&new=1' : '');
+  // fallback button = the Base44 one-click page (works without JS)
+  fbbtn.href = API + '?' + authQ + (forceNew ? '&new=1' : '');
+
+  var url = API + '?' + authQ + '&mode=json' + (forceNew ? '&new=1' : '');
 
   fetch(url).then(function(r){ return r.json(); }).then(function(j){
     if(j.error){
@@ -99,7 +103,7 @@
       fb.style.display = 'none';
       document.getElementById('restorebtn').addEventListener('click', function(){
         var b = this; b.disabled = true; b.innerHTML = 'Restoring your card&hellip;';
-        var ru = API + '?t=' + encodeURIComponent(t) + '&do=restore&mode=json';
+        var ru = API + '?' + authQ + '&do=restore&mode=json';
         fetch(ru).then(function(r2){ return r2.json(); }).then(function(j2){
           if(j2.ok){
             document.getElementById('main').innerHTML = '<div style="font-size:44px;color:#15803d;line-height:1;margin-bottom:8px;">&#10004;</div>'

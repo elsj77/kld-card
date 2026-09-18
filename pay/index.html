@@ -57,6 +57,7 @@
   var qs = new URLSearchParams(location.search);
   var e = (qs.get('t')||'').trim(); // secure per-client portal token (Sept 17 2026)
   var eq = (qs.get('e')||'').trim(); // estimate number hint (which of this client's quotes this email is about)
+  var qq = (qs.get('q')||'').trim(); // estimate GUID link — [quotelinkurl] merge, SAP's own proposal credential (Sept 18 2026)
   var content = document.getElementById('content');
 
   function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -79,7 +80,7 @@
     return;
   }
 
-  fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({t:e, e:eq, mode:'summary'})})
+  fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({t:e, e:eq, q:qq, mode:'summary'})})
     .then(function(r){ return r.json(); })
     .then(function(j){
       if(j.error){ fail(j.error==='link_invalid' ? 'This secure link is no longer valid. Please use the exact button from your renewal email, or call our office.' : 'We couldn\'t load your renewal right now. Please try again in a few minutes, or call our office at 250-489-2031.'); return; }
@@ -109,7 +110,7 @@
       document.getElementById('paybtn').addEventListener('click', function(ev){
         ev.preventDefault();
         var btn = this; btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Taking you to the secure form&hellip;';
-        fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({t:e, e:eq, mode:'pay'})})
+        fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({t:e, e:eq, q:qq, mode:'pay'})})
           .then(function(r){ return r.json(); })
           .then(function(j2){
             if(j2.error){ btn.disabled = false; btn.innerHTML = 'Pay Now &nbsp;&rarr;'; fail(j2.error==='not_found' ? 'We couldn\'t find that renewal quote.' : 'We couldn\'t reach the secure payment form. Please try again in a few minutes, or call our office.'); return; }
